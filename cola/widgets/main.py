@@ -23,6 +23,7 @@ from .. import gitcfg
 from .. import gitcmds
 from .. import hotkeys
 from .. import icons
+from .. import observable
 from .. import qtutils
 from .. import resources
 from .. import utils
@@ -117,6 +118,12 @@ class MainView(standard.MainWindow):
         self.branchdockwidget = create_dock(N_('Branches'), self)
         self.branchwidget = branch.BranchesWidget(parent=self.branchdockwidget)
         self.branchdockwidget.setWidget(self.branchwidget)
+
+        # "Graph" widgets
+        self.notifier = notifier = observable.Observable()
+        self.graphdockwidget = create_dock(N_('Graph'), self)
+        self.graphwidget = dag.GraphView(notifier, self)
+        self.graphdockwidget.setWidget(self.graphwidget)
 
         # "Commit Message Editor" widget
         self.position_label = QtWidgets.QLabel()
@@ -709,11 +716,13 @@ class MainView(standard.MainWindow):
             (optkey + '+5', self.bookmarksdockwidget),
             (optkey + '+6', self.recentdockwidget),
             (optkey + '+7', self.branchdockwidget),
+            ('', self.graphdockwidget),
         )
         for shortcut, dockwidget in dockwidgets:
             # Associate the action with the shortcut
             toggleview = dockwidget.toggleViewAction()
-            toggleview.setShortcut('Shift+' + shortcut)
+            if shortcut != '':
+                toggleview.setShortcut('Shift+' + shortcut)
             self.view_menu.addAction(toggleview)
 
             def showdock(show, dockwidget=dockwidget):
@@ -726,14 +735,15 @@ class MainView(standard.MainWindow):
             self.addAction(toggleview)
             qtutils.connect_action_bool(toggleview, showdock)
 
-            # Create a new shortcut Shift+<shortcut> that gives focus
-            toggleview = QtWidgets.QAction(self)
-            toggleview.setShortcut(shortcut)
+            if shortcut != '':
+                # Create a new shortcut Shift+<shortcut> that gives focus
+                toggleview = QtWidgets.QAction(self)
+                toggleview.setShortcut(shortcut)
 
-            def focusdock(dockwidget=dockwidget):
-                focus_dock(dockwidget)
-            self.addAction(toggleview)
-            qtutils.connect_action(toggleview, focusdock)
+                def focusdock(dockwidget=dockwidget):
+                    focus_dock(dockwidget)
+                self.addAction(toggleview)
+                qtutils.connect_action(toggleview, focusdock)
 
         # These widgets warrant home-row hotkey status
         qtutils.add_action(self, 'Focus Commit Message',
