@@ -18,6 +18,7 @@ from . import icons
 from . import resources
 from . import textwrap
 from . import utils
+from . import qtutils
 from .cmd import ContextCommand
 from .diffparse import DiffParser
 from .git import STDOUT
@@ -26,6 +27,7 @@ from .git import MISSING_BLOB_OID
 from .i18n import N_
 from .interaction import Interaction
 from .models import prefs
+from .widgets.standard import ProgressDialog
 
 
 class UsageError(Exception):
@@ -1484,7 +1486,22 @@ class OpenNewRepo(ContextCommand):
         core.fork([sys.executable, sys.argv[0], '--repo', self.repo_path])
 
 
+class OpenRepoActionTask(qtutils.Task):
+    """Run actions asynchronously"""
+
+    def __init__(self, parent, item):
+        qtutils.Task.__init__(self, parent)
+        self.item = item
+
+    def task(self):
+        """Runs the model action and captures the result"""
+        return self.item.do_sync()
+
 class OpenRepo(EditModel):
+
+    window = None
+    runtask = None
+    progress = None
 
     def __init__(self, context, repo_path):
         super(OpenRepo, self).__init__(context)
@@ -1494,8 +1511,17 @@ class OpenRepo(EditModel):
         self.new_diff_type = 'text'
         self.new_commitmsg = ''
         self.new_filename = ''
+        if OpenRepo.window is None:
+            OpenRepo.window = context.app.desktop()
+            OpenRepo.runtask = qtutils.RunTask(OpenRepo.window)
+            OpenRepo.progress = ProgressDialog(N_('Opening'), N_('Opening'), OpenRepo.window)
 
     def do(self):
+        OpenRepo.progress.thread.set_text(self.repo_path)
+        task = OpenRepoActionTask(OpenRepo.window, self)
+        OpenRepo.runtask.start(task, progress=OpenRepo.progress)
+
+    def do_sync(self):
         old_repo = self.git.getcwd()
         if self.model.set_worktree(self.repo_path):
             self.fsmonitor.stop()
