@@ -238,6 +238,9 @@ class CompletionLineEdit(HintedLineEdit):
                 result = True
         return result
 
+    def completion_model(self):
+        return self._completion_model
+
     # Qt overrides
     def event(self, event):
         """Override QWidget::event() for tab completion"""
@@ -676,8 +679,11 @@ class GitLogCompletionModel(GitRefCompletionModel):
         GitRefCompletionModel.__init__(self, context, parent)
         self.model_updated.connect(self.gather_paths, type=Qt.QueuedConnection)
         self._paths = []
+        self._gather_paths = True
 
     def gather_paths(self):
+        if not self._gather_paths:
+            return
         context = self.context
         self._paths = gitcmds.tracked_files(context)
 
@@ -697,6 +703,11 @@ class GitLogCompletionModel(GitRefCompletionModel):
             paths.insert(0, '--')
 
         return (refs, paths, dirs)
+
+    def set_gather_paths(self, gather_paths):
+        self._gather_paths = gather_paths
+        if not gather_paths:
+            self._paths = []
 
 
 def bind_lineedit(model, hint=''):

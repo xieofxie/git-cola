@@ -514,6 +514,7 @@ class GitDAG(standard.MainWindow):
         self.old_oids = None
         self.old_count = 0
         self.force_refresh = False
+        self.revtext_gather_paths = True
 
         self.thread = None
         self.revtext = completion.GitLogLineEdit(context)
@@ -586,6 +587,10 @@ class GitDAG(standard.MainWindow):
         self.refresh_action = qtutils.add_action(
             self, N_('Refresh'), self.refresh, hotkeys.REFRESH)
 
+        self.revtext_gather_paths_action = qtutils.add_action_bool(
+            self, N_('Gather Paths in Log'), self.set_revtext_gather_paths,
+            self.revtext_gather_paths)
+
         # Create the application menu
         self.menubar = QtWidgets.QMenuBar(self)
         self.setMenuBar(self.menubar)
@@ -599,6 +604,7 @@ class GitDAG(standard.MainWindow):
         self.view_menu.addAction(self.file_dock.toggleViewAction())
         self.view_menu.addSeparator()
         self.view_menu.addAction(self.lock_layout_action)
+        self.view_menu.addAction(self.revtext_gather_paths_action)
 
         left = Qt.LeftDockWidgetArea
         right = Qt.RightDockWidgetArea
@@ -679,6 +685,7 @@ class GitDAG(standard.MainWindow):
         state = standard.MainWindow.export_state(self)
         state['count'] = self.params.count
         state['log'] = self.treewidget.export_state()
+        state['revtext_gather_paths'] = self.revtext_gather_paths
         return state
 
     def apply_state(self, state):
@@ -699,6 +706,13 @@ class GitDAG(standard.MainWindow):
             log_state = None
         if log_state:
             self.treewidget.apply_state(log_state)
+
+        try:
+            revtext_gather_paths = state['revtext_gather_paths']
+        except (KeyError, ValueError):
+            revtext_gather_paths = None
+        if revtext_gather_paths:
+            self.set_revtext_gather_paths(revtext_gather_paths)
 
         return result
 
@@ -828,6 +842,10 @@ class GitDAG(standard.MainWindow):
         oid = self.treewidget.selected_oid()
         model = browse.BrowseModel(oid, filename=filename)
         browse.save_path(self.context, filename, model)
+
+    def set_revtext_gather_paths(self, revtext_gather_paths):
+        self.revtext_gather_paths = revtext_gather_paths
+        self.revtext.completion_model().set_gather_paths(revtext_gather_paths)
 
 
 class ReaderThread(QtCore.QThread):
